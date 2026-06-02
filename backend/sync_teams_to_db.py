@@ -1,10 +1,14 @@
 import psycopg2
 import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_PARAMS = {
     "dbname": "postgres",
     "user": "postgres",
-    "password": "002505@Zx",
+    "password": os.getenv("DB_PASSWORD", "postgres"),
     "host": "localhost",
     "port": 5432
 }

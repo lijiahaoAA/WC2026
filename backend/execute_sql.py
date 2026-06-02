@@ -1,9 +1,13 @@
 import pg8000
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def execute_scripts():
     print("正在连接 PostgreSQL...")
     try:
-        conn = pg8000.connect(user="postgres", password="002505@Zx", host="127.0.0.1", port=5432, database="postgres")
+        conn = pg8000.connect(user="postgres", password=os.getenv("DB_PASSWORD", "postgres"), host="127.0.0.1", port=5432, database="postgres")
         conn.autocommit = True
         cursor = conn.cursor()
         

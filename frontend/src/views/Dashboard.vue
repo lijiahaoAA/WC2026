@@ -1,24 +1,22 @@
 <template>
   <div class="dashboard-fullscreen">
-    <!-- 装饰性背景网格和科技光线 -->
+    <!-- 最底层：超弱透明度的暗蓝灰数据网格 -->
     <div class="tech-grid"></div>
-    <div class="tech-lines">
-      <div class="line line-1"></div>
-      <div class="line line-2"></div>
-      <div class="line line-3"></div>
-    </div>
-
+    
+    <!-- 巨型柔和暗金环境光晕 (Ethereal backlight) -->
+    <div class="ethereal-glow"></div>
+    
     <!-- 顶部数据挂件区 -->
     <div class="top-widgets">
-      <div class="widget-box">
+      <div class="widget-box glass-panel">
         <div class="w-title">赛事倒计时</div>
         <div class="w-value highlight">{{ countdownDays }} <span class="unit">天</span></div>
       </div>
-      <div class="widget-box">
+      <div class="widget-box glass-panel">
         <div class="w-title">参赛队伍</div>
         <div class="w-value">48 <span class="unit">支</span></div>
       </div>
-      <div class="widget-box">
+      <div class="widget-box glass-panel">
         <div class="w-title">总比赛场次</div>
         <div class="w-value">104 <span class="unit">场</span></div>
       </div>
@@ -34,24 +32,8 @@
       <div class="focus-match-display" @click="goToDetail(focusMatch)">
         <!-- 左侧面板：主队数据展示 -->
         <div class="side-data-panel left-data">
-          <!-- 球队档案 -->
-          <div class="data-card" v-if="team1Data">
-            <div class="card-header">
-              <h3>TEAM INFO</h3>
-              <p>球队档案</p>
-            </div>
-            <div class="card-body team-info">
-              <div class="info-row"><span>FIFA排名:</span> <span class="highlight">{{ team1Data.fifa_ranking }}</span></div>
-              <div class="info-row"><span>总身价:</span> <span class="highlight">{{ team1Data.total_value }}</span></div>
-              <div class="info-row"><span>主教练:</span> <span>{{ team1Data.coach }}</span></div>
-              <div class="info-row"><span>阵型偏好:</span> <span>{{ team1Data.formation }}</span></div>
-              <div class="info-row"><span>平均年龄:</span> <span>{{ team1Data.avg_age }} 岁</span></div>
-              <div class="info-row"><span>主场馆:</span> <span class="truncate-text" :title="team1Data.stadium">{{ team1Data.stadium }}</span></div>
-            </div>
-          </div>
-
           <!-- 核心球员 -->
-          <div class="data-card key-player" v-if="team1Data && getTopPlayer(team1Data)">
+          <div class="data-card key-player glass-panel" v-if="team1Data && getTopPlayer(team1Data)">
             <div class="card-header">
               <h3>STAR PLAYER</h3>
               <p>战术核心</p>
@@ -68,7 +50,7 @@
           </div>
           
           <!-- 预计首发 -->
-          <div class="data-card starting-xi" v-if="team1Data && team1Data.players">
+          <div class="data-card starting-xi glass-panel" v-if="team1Data && team1Data.players">
             <div class="card-header">
               <h3>STARTING XI</h3>
               <p>预计首发</p>
@@ -77,8 +59,18 @@
               <div class="player-item" v-for="player in team1Data.players.filter((p: any) => p.is_starter)" :key="player.name">
                 <div class="p-pos" :class="getPosClass(player.position)">{{ player.position }}</div>
                 <div class="p-info">
-                  <div class="p-name">{{ player.name }}</div>
-                  <div class="p-meta">{{ player.age }}岁 | {{ player.height || '-' }}cm | {{ player.weight || '-' }}kg | {{ player.preferred_foot || '-' }}</div>
+                  <div class="p-name">
+                    {{ player.name }} 
+                    <span class="p-club" v-if="player.club">({{ player.club }})</span>
+                    <span class="starter-badge">首发</span>
+                  </div>
+                  <div class="p-meta">
+                    <span v-if="player.age">{{ player.age }}岁</span>
+                    <span v-if="player.height"> | {{ player.height }}cm</span>
+                    <span v-if="player.weight"> | {{ player.weight }}kg</span>
+                    <span v-if="player.preferred_foot"> | {{ player.preferred_foot }}</span>
+                    <span v-if="player.market_value"> | {{ player.market_value }}</span>
+                  </div>
                 </div>
                 <div class="p-rating" :class="getRatingClass(player.overall_rating)">{{ player.overall_rating || '-' }}</div>
               </div>
@@ -86,20 +78,40 @@
           </div>
 
           <!-- 无数据缺省态 -->
-          <div class="data-card" v-if="!team1Data">
-            <div class="card-header">
-              <h3>TEAM INFO</h3>
-              <p>球队档案</p>
-            </div>
+          <div class="data-card glass-panel" v-if="!team1Data">
             <div class="card-body empty-data">
               暂无球队数据，待录入...
             </div>
           </div>
         </div>
 
-        <!-- 左侧主队名 -->
+        <!-- 左侧主队名与档案 -->
         <div class="team-panel left-team">
-          <h1 class="team-name">{{ focusMatch.team1 }}</h1>
+          <div class="team-card glass-panel">
+            <h1 class="team-name">{{ focusMatch.team1 }}</h1>
+            <div class="team-info-blocks" v-if="team1Data">
+              <div class="info-block">
+                <span class="block-label">FIFA</span>
+                <strong class="block-value highlight">{{ team1Data.fifa_ranking }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">总身价</span>
+                <strong class="block-value highlight">{{ team1Data.total_value }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">主帅</span>
+                <strong class="block-value">{{ team1Data.coach }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">阵型</span>
+                <strong class="block-value">{{ team1Data.formation }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">平均年龄</span>
+                <strong class="block-value">{{ team1Data.avg_age }} 岁</strong>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- 中间信息(包含主客场标签) -->
@@ -119,31 +131,39 @@
           <div class="side-tag away-tag">客场</div>
         </div>
         
-        <!-- 右侧客队名 -->
+        <!-- 右侧客队名与档案 -->
         <div class="team-panel right-team">
-          <h1 class="team-name">{{ focusMatch.team2 }}</h1>
+          <div class="team-card glass-panel">
+            <h1 class="team-name">{{ focusMatch.team2 }}</h1>
+            <div class="team-info-blocks" v-if="team2Data">
+              <div class="info-block">
+                <span class="block-label">FIFA</span>
+                <strong class="block-value highlight">{{ team2Data.fifa_ranking }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">总身价</span>
+                <strong class="block-value highlight">{{ team2Data.total_value }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">主帅</span>
+                <strong class="block-value">{{ team2Data.coach }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">阵型</span>
+                <strong class="block-value">{{ team2Data.formation }}</strong>
+              </div>
+              <div class="info-block">
+                <span class="block-label">平均年龄</span>
+                <strong class="block-value">{{ team2Data.avg_age }} 岁</strong>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 右侧面板：客队数据展示 -->
         <div class="side-data-panel right-data">
-          <!-- 球队档案 -->
-          <div class="data-card" v-if="team2Data">
-            <div class="card-header">
-              <h3>TEAM INFO</h3>
-              <p>球队档案</p>
-            </div>
-            <div class="card-body team-info">
-              <div class="info-row"><span>FIFA排名:</span> <span class="highlight">{{ team2Data.fifa_ranking }}</span></div>
-              <div class="info-row"><span>总身价:</span> <span class="highlight">{{ team2Data.total_value }}</span></div>
-              <div class="info-row"><span>主教练:</span> <span>{{ team2Data.coach }}</span></div>
-              <div class="info-row"><span>阵型偏好:</span> <span>{{ team2Data.formation }}</span></div>
-              <div class="info-row"><span>平均年龄:</span> <span>{{ team2Data.avg_age }} 岁</span></div>
-              <div class="info-row"><span>主场馆:</span> <span class="truncate-text" :title="team2Data.stadium">{{ team2Data.stadium }}</span></div>
-            </div>
-          </div>
-
           <!-- 核心球员 -->
-          <div class="data-card key-player" v-if="team2Data && getTopPlayer(team2Data)">
+          <div class="data-card key-player glass-panel" v-if="team2Data && getTopPlayer(team2Data)">
             <div class="card-header">
               <h3>STAR PLAYER</h3>
               <p>战术核心</p>
@@ -160,7 +180,7 @@
           </div>
           
           <!-- 预计首发 -->
-          <div class="data-card starting-xi" v-if="team2Data && team2Data.players">
+          <div class="data-card starting-xi glass-panel" v-if="team2Data && team2Data.players">
             <div class="card-header">
               <h3>STARTING XI</h3>
               <p>预计首发</p>
@@ -169,8 +189,18 @@
               <div class="player-item" v-for="player in team2Data.players.filter((p: any) => p.is_starter)" :key="player.name">
                 <div class="p-pos" :class="getPosClass(player.position)">{{ player.position }}</div>
                 <div class="p-info">
-                  <div class="p-name">{{ player.name }}</div>
-                  <div class="p-meta">{{ player.age }}岁 | {{ player.height || '-' }}cm | {{ player.weight || '-' }}kg | {{ player.preferred_foot || '-' }}</div>
+                  <div class="p-name">
+                    {{ player.name }} 
+                    <span class="p-club" v-if="player.club">({{ player.club }})</span>
+                    <span class="starter-badge">首发</span>
+                  </div>
+                  <div class="p-meta">
+                    <span v-if="player.age">{{ player.age }}岁</span>
+                    <span v-if="player.height"> | {{ player.height }}cm</span>
+                    <span v-if="player.weight"> | {{ player.weight }}kg</span>
+                    <span v-if="player.preferred_foot"> | {{ player.preferred_foot }}</span>
+                    <span v-if="player.market_value"> | {{ player.market_value }}</span>
+                  </div>
                 </div>
                 <div class="p-rating" :class="getRatingClass(player.overall_rating)">{{ player.overall_rating || '-' }}</div>
               </div>
@@ -178,11 +208,7 @@
           </div>
 
           <!-- 无数据缺省态 -->
-          <div class="data-card" v-if="!team2Data">
-            <div class="card-header">
-              <h3>TEAM INFO</h3>
-              <p>球队档案</p>
-            </div>
+          <div class="data-card glass-panel" v-if="!team2Data">
             <div class="card-body empty-data">
               暂无球队数据，待录入...
             </div>
@@ -198,7 +224,7 @@
       </div>
       <div class="match-grid">
         <div
-          class="grid-card"
+          class="grid-card glass-panel"
           v-for="(match, index) in upcomingMatches"
           :key="index"
           @click="goToDetail(match)"
@@ -325,8 +351,8 @@ onMounted(async () => {
   right: 0;
   bottom: 0;
   background-image: 
-    linear-gradient(rgba(64, 158, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(64, 158, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(210, 167, 109, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(210, 167, 109, 0.03) 1px, transparent 1px);
   background-size: 30px 30px;
   z-index: 0;
   pointer-events: none;
@@ -341,49 +367,40 @@ onMounted(async () => {
   overflow: hidden;
   position: relative;
   pointer-events: none; /* 让顶层穿透 */
+  background: transparent; /* 确保自身透明 */
 }
 
-/* ================= 科技感背景装饰 ================= */
+/* ================= 科幻指挥中心环境底座 ================= */
 .tech-grid {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
+  /* 极微弱的暗蓝灰色网格，透明度 < 4% */
   background-image: 
-    linear-gradient(rgba(64, 158, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(64, 158, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(44, 58, 71, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(44, 58, 71, 0.035) 1px, transparent 1px);
   background-size: 50px 50px;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-.tech-lines {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
 }
 
-.line {
+/* 巨型、柔和、无边界的暗金环境光晕 */
+.ethereal-glow {
   position: absolute;
-  background: linear-gradient(90deg, transparent, rgba(103, 194, 58, 0.8), transparent);
-  height: 1px;
-  width: 100%;
-  opacity: 0.3;
-}
-
-.line-1 { top: 20%; animation: scan 8s linear infinite; }
-.line-2 { top: 60%; animation: scan 12s linear infinite reverse; background: linear-gradient(90deg, transparent, rgba(64, 158, 255, 0.8), transparent); }
-.line-3 { top: 85%; animation: scan 10s linear infinite; }
-
-@keyframes scan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  top: -10%; /* 定位在顶部偏上，从 "VS" 后方向下辐射 */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1600px;
+  height: 1200px;
+  background: radial-gradient(ellipse at top center, rgba(210, 167, 109, 0.45) 0%, rgba(210, 167, 109, 0.2) 40%, transparent 70%);
+  filter: blur(100px); /* 极大的高斯模糊，消除任何可见边界 */
+  z-index: 1; /* 在网格之上，3D 模型之下 */
+  pointer-events: none;
 }
 
 /* ======= 顶部挂件优化 ======= */
 .top-widgets {
   position: absolute;
-  top: 15px;
+  top: 90px; /* 从 15px 下移到 90px，与中央的球队卡片（margin-top: -60px，相对于父级 paddingTop 50px）顶部对齐 */
   right: 30px;
   display: flex;
   gap: 15px;
@@ -391,8 +408,7 @@ onMounted(async () => {
 }
 
 .widget-box {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(30, 26, 23, 0.6); /* 深古铜底色 */
   padding: 6px 15px;
   border-radius: 6px;
   backdrop-filter: blur(5px);
@@ -413,13 +429,13 @@ onMounted(async () => {
   font-size: 1.2rem;
   font-weight: 900;
   font-family: 'Courier New', Courier, monospace;
-  color: #FFC107; /* 辅助色：琥珀黄 */
-  text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+  color: #D2A76D; /* 香槟金 */
+  text-shadow: 0 0 10px rgba(210, 167, 109, 0.3);
 }
 
 .w-value.highlight {
-  color: #39FF14; /* 次强调色：霓虹绿 */
-  text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+  color: #D2A76D; /* 统一为香槟金 */
+  text-shadow: 0 0 15px rgba(210, 167, 109, 0.6);
 }
 
 .unit {
@@ -450,27 +466,27 @@ onMounted(async () => {
   gap: 10px;
   font-size: 14px;
   font-weight: 800;
-  color: #00BFFF; /* 科技蓝 */
+  color: #D2A76D; /* 香槟金 */
   letter-spacing: 3px;
-  text-shadow: 0 0 10px rgba(0, 191, 255, 0.5);
-  background: rgba(0,0,0,0.5);
+  text-shadow: 0 0 10px rgba(210, 167, 109, 0.5);
+  background: rgba(30, 26, 23, 0.8);
   padding: 6px 15px;
   border-radius: 4px;
-  border-left: 4px solid #00BFFF;
+  border-left: 4px solid #D2A76D;
 }
 
 .live-dot {
   width: 8px;
   height: 8px;
-  background-color: #39FF14; /* 霓虹绿闪烁点 */
+  background-color: #D2A76D; /* 香槟金闪烁点 */
   border-radius: 50%;
-  box-shadow: 0 0 10px #39FF14;
+  box-shadow: 0 0 10px #D2A76D;
   animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
   0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.5); opacity: 1; box-shadow: 0 0 20px #39FF14; }
+  50% { transform: scale(1.5); opacity: 1; box-shadow: 0 0 20px #D2A76D; }
   100% { transform: scale(0.9); opacity: 0.7; }
 }
 
@@ -486,24 +502,22 @@ onMounted(async () => {
 /* ======= 两侧数据面板 (效果图还原) ======= */
 .side-data-panel {
   position: absolute;
-  top: 70px;
+  top: 140px; /* 从 70px 下移到 140px，远离顶部状态栏 */
   width: 420px;
   display: flex;
   flex-direction: column;
   gap: 15px;
   z-index: 10;
-  max-height: calc(100vh - 180px);
+  max-height: calc(100vh - 250px); /* 相应减少 max-height 防止触底 */
 }
 .left-data { left: 20px; }
 .right-data { right: 20px; }
 
 .data-card {
-  background: rgba(13, 17, 23, 0.6);
-  border: 1px solid rgba(0, 191, 255, 0.3); /* 科技蓝边框 */
+  background: rgba(18, 18, 18, 0.75); /* 黑曜石底色 */
   border-radius: 8px;
   padding: 12px;
   backdrop-filter: blur(12px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .starting-xi {
@@ -523,7 +537,9 @@ onMounted(async () => {
 .card-header h3 {
   margin: 0;
   font-size: 1.1rem;
-  color: #00BFFF; /* 科技蓝 */
+  background: linear-gradient(135deg, #D2A76D 0%, #A67C41 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   letter-spacing: 1px;
 }
 .card-header p {
@@ -551,14 +567,14 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: 0;
   font-size: 0.85rem;
-  border-bottom: 1px dashed rgba(255,255,255,0.05);
+  border-bottom: 1px dashed rgba(210, 167, 109, 0.15); /* 香槟金弱虚线 */
   padding-bottom: 4px;
 }
 .team-info .info-row span:first-child {
   color: #A0A0A0;
 }
 .team-info .info-row .highlight {
-  color: #39FF14; /* 霓虹绿 */
+  color: #D2A76D; /* 香槟金 */
   font-weight: bold;
 }
 .truncate-text {
@@ -586,6 +602,7 @@ onMounted(async () => {
   font-size: 1.3rem;
   font-weight: 900;
   font-family: 'Courier New', Courier, monospace;
+  color: #D2A76D;
 }
 .kp-stats {
   display: grid;
@@ -595,11 +612,11 @@ onMounted(async () => {
   color: #A0A0A0;
 }
 .kp-stats span {
-  background: rgba(255,255,255,0.05);
+  background: rgba(210, 167, 109, 0.05);
   padding: 4px;
   border-radius: 4px;
   text-align: center;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(210, 167, 109, 0.15);
 }
 
 .player-list {
@@ -613,7 +630,7 @@ onMounted(async () => {
   width: 4px;
 }
 .player-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 191, 255, 0.5); /* 科技蓝滚动条 */
+  background: rgba(210, 167, 109, 0.5); /* 香槟金滚动条 */
   border-radius: 4px;
 }
 .player-item {
@@ -621,7 +638,7 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px dashed rgba(255,255,255,0.1);
+  border-bottom: 1px dashed rgba(210, 167, 109, 0.15);
 }
 .player-item:last-child {
   border-bottom: none;
@@ -635,10 +652,10 @@ onMounted(async () => {
   text-align: center;
   font-weight: bold;
 }
-.pos-gk { color: #FFC107; border: 1px solid #FFC107; background: rgba(255, 193, 7, 0.1); } /* 琥珀黄 */
-.pos-df { color: #00BFFF; border: 1px solid #00BFFF; background: rgba(0, 191, 255, 0.1); } /* 科技蓝 */
-.pos-mf { color: #39FF14; border: 1px solid #39FF14; background: rgba(57, 255, 20, 0.1); } /* 霓虹绿 */
-.pos-fw { color: #F56C6C; border: 1px solid #F56C6C; background: rgba(245, 108, 108, 0.1); }
+.pos-gk { color: #A0A0A0; border: 1px solid #A0A0A0; background: rgba(160, 160, 160, 0.1); } 
+.pos-df { color: #D2A76D; border: 1px solid #D2A76D; background: rgba(210, 167, 109, 0.1); } 
+.pos-mf { color: #D2A76D; border: 1px solid #D2A76D; background: rgba(210, 167, 109, 0.1); } 
+.pos-fw { color: #D2A76D; border: 1px solid #D2A76D; background: rgba(210, 167, 109, 0.1); }
 
 .p-info {
   display: flex;
@@ -653,6 +670,25 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+}
+.p-club {
+  font-size: 0.75rem;
+  font-weight: normal;
+  color: #A0A0A0;
+  margin-left: 4px;
+}
+.starter-badge {
+  font-size: 0.6rem;
+  background: rgba(210, 167, 109, 0.15);
+  color: #D2A76D;
+  border: 1px solid rgba(210, 167, 109, 0.4);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: 6px;
+  font-weight: normal;
+  letter-spacing: 1px;
 }
 .p-meta {
   font-size: 0.7rem;
@@ -668,38 +704,94 @@ onMounted(async () => {
   font-size: 1.1rem;
   margin-left: auto;
 }
-.rating-gold { color: #39FF14; text-shadow: 0 0 8px rgba(57, 255, 20, 0.6); } /* 金卡改为霓虹绿发光 */
-.rating-silver { color: #00BFFF; text-shadow: 0 0 8px rgba(0, 191, 255, 0.6); } /* 银卡改为科技蓝 */
-.rating-bronze { color: #FFC107; text-shadow: 0 0 8px rgba(255, 193, 7, 0.6); } /* 铜卡改为琥珀黄 */
+.rating-gold { color: #D2A76D; text-shadow: 0 0 8px rgba(210, 167, 109, 0.6); } 
+.rating-silver { color: #A67C41; text-shadow: 0 0 8px rgba(166, 124, 65, 0.6); } 
+.rating-bronze { color: #8A6327; text-shadow: 0 0 8px rgba(138, 99, 39, 0.6); } 
 .rating-gray { color: #A0A0A0; }
 
 /* ======= 球队面板科技感排版 ======= */
 .team-panel {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 15px;
   flex: 1;
   position: relative;
-  margin-top: -100px;
+  margin-top: -60px; /* 下移，避免贴近顶部状态栏 */
 }
 
 .left-team { align-items: flex-end; text-align: right; padding-right: 40px; }
 .right-team { align-items: flex-start; text-align: left; padding-left: 40px; }
 
+.team-card {
+  background: rgba(18, 18, 18, 0.75);
+  padding: 20px 30px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* 让内部的球队名和数据方块整体居中 */
+  backdrop-filter: blur(12px);
+  max-width: 600px; /* 增加宽度，防止小方块换行 */
+}
+
+.left-team .team-card { /* 移除覆盖 align-items */ }
+.right-team .team-card { /* 移除覆盖 align-items */ }
+
 /* 废弃旧的 team-tag */
 .team-tag { display: none; }
 
 .team-name {
-  font-size: 3.5rem;
+  font-size: 3rem; /* 略微缩小，避免喧宾夺主 */
   font-weight: 900;
-  margin: 0;
+  margin: 0 0 10px 0; /* 调整 margin */
   letter-spacing: 2px;
+  text-align: center; /* 文字居中 */
   color: #ffffff; /* 纯白文字 */
   text-shadow: 0 0 15px rgba(255, 255, 255, 0.4), 0 0 30px rgba(255, 255, 255, 0.2); /* 柔和的高级发光 */
   -webkit-text-stroke: 0; /* 移除描边 */
   position: relative;
   z-index: 2;
   white-space: nowrap;
+}
+
+/* 队名下方横向排列的球队档案模块框 */
+.team-info-blocks {
+  display: flex;
+  flex-wrap: nowrap; /* 强制不换行 */
+  justify-content: center; /* 方块整体居中 */
+  gap: 12px;
+}
+
+.left-team .team-info-blocks { /* 移除覆盖 justify-content */ }
+.right-team .team-info-blocks { /* 移除覆盖 justify-content */ }
+
+.info-block {
+  background: rgba(30, 26, 23, 0.4); /* 弱化背景，融入大卡片 */
+  border: 1px solid rgba(210, 167, 109, 0.15); /* 弱化边框 */
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.info-block .block-label {
+  color: #A0A0A0;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  margin-bottom: 3px;
+}
+
+.info-block .block-value {
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.info-block .block-value.highlight {
+  color: #D2A76D;
+  text-shadow: 0 0 10px rgba(210, 167, 109, 0.4);
 }
 
 /* 彻底删除 team-glitch 特效类 */
@@ -715,27 +807,27 @@ onMounted(async () => {
 .side-tag {
   font-size: 1rem;
   font-weight: bold;
-  color: #fff;
+  color: #D2A76D; /* 浅香槟金文本 */
   letter-spacing: 2px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(30, 26, 23, 0.6); /* 古铜底色 */
   backdrop-filter: blur(10px);
   padding: 5px 15px;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(210, 167, 109, 0.2);
   text-shadow: none;
   opacity: 1;
   white-space: nowrap;
   margin-top: -30px;
 }
 .home-tag { 
-  background: linear-gradient(90deg, rgba(64, 158, 255, 0.2), transparent);
-  border-left: 3px solid #409EFF;
+  background: linear-gradient(90deg, rgba(210, 167, 109, 0.15), transparent);
+  border-left: 3px solid #D2A76D;
   border-right: none;
   padding-left: 20px;
 }
 .away-tag { 
-  background: linear-gradient(-90deg, rgba(245, 108, 108, 0.2), transparent);
-  border-right: 3px solid #F56C6C;
+  background: linear-gradient(-90deg, rgba(210, 167, 109, 0.15), transparent);
+  border-right: 3px solid #D2A76D;
   border-left: none;
   padding-right: 20px;
 }
@@ -755,8 +847,8 @@ onMounted(async () => {
 .vs-text {
   font-size: 1.8rem;
   font-weight: 900;
-  color: #39FF14; /* 霓虹绿 VS */
-  text-shadow: 0 0 15px rgba(57, 255, 20, 0.6);
+  color: #D2A76D; /* 香槟金 VS */
+  text-shadow: 0 0 15px rgba(210, 167, 109, 0.6);
   font-style: italic;
   margin-bottom: -5px;
 }
@@ -764,15 +856,15 @@ onMounted(async () => {
 .match-info-pill {
   display: flex;
   gap: 12px;
-  background: rgba(13, 17, 23, 0.8);
-  border: 1px solid #00BFFF; /* 科技蓝 */
+  background: rgba(30, 26, 23, 0.8);
+  border: 1px solid #D2A76D; /* 香槟金 */
   padding: 5px 12px;
   border-radius: 4px;
   font-size: 0.8rem;
-  box-shadow: 0 0 15px rgba(0, 191, 255, 0.2);
+  box-shadow: 0 0 15px rgba(210, 167, 109, 0.2);
 }
 
-.group { color: #00BFFF; font-weight: bold; }
+.group { color: #D2A76D; font-weight: bold; }
 
 .stadium {
   font-size: 0.85rem;
@@ -786,14 +878,14 @@ onMounted(async () => {
   border-radius: 20px;
 }
 
-/* 赛博朋克按钮 */
+/* 赛博朋克按钮 -> 奢华金属按钮 */
 .cyber-btn {
   pointer-events: auto;
   margin-top: 5px;
-  background: transparent !important;
-  border: 1px solid #00BFFF !important; /* 科技蓝按钮 */
-  color: #00BFFF !important;
-  border-radius: 0;
+  background: rgba(210, 167, 109, 0.1) !important;
+  border: 1px solid #D2A76D !important; /* 香槟金按钮 */
+  color: #D2A76D !important;
+  border-radius: 4px;
   padding: 8px 20px;
   font-size: 0.9rem;
   font-weight: bold;
@@ -806,12 +898,12 @@ onMounted(async () => {
   content: '';
   position: absolute;
   top: 0; left: -100%; width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 191, 255, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(210, 167, 109, 0.4), transparent);
   transition: all 0.5s;
 }
 .cyber-btn:hover {
-  background: rgba(0, 191, 255, 0.1) !important;
-  box-shadow: 0 0 20px rgba(0, 191, 255, 0.4);
+  background: rgba(210, 167, 109, 0.2) !important;
+  box-shadow: 0 0 20px rgba(210, 167, 109, 0.4);
 }
 .cyber-btn:hover::before {
   left: 100%;
@@ -821,7 +913,7 @@ onMounted(async () => {
 .schedule-section {
   flex: 0 0 auto; 
   padding: 5px 30px 10px;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+  background: linear-gradient(to top, rgba(18,18,18,0.9) 0%, rgba(18,18,18,0.4) 50%, transparent 100%);
   z-index: 10;
   pointer-events: auto; 
 }
@@ -829,11 +921,11 @@ onMounted(async () => {
 .section-title {
   font-size: 0.9rem;
   font-weight: 800;
-  color: #8b949e;
+  color: #A0A0A0;
   margin-bottom: 10px;
   letter-spacing: 2px;
 }
-.bracket { color: #409EFF; }
+.bracket { color: #D2A76D; }
 
 .match-grid {
   display: flex;
@@ -841,22 +933,20 @@ onMounted(async () => {
   overflow-x: auto;
   padding-bottom: 5px;
   scrollbar-width: thin;
-  scrollbar-color: #409EFF transparent;
+  scrollbar-color: #D2A76D transparent;
 }
 .match-grid::-webkit-scrollbar {
   height: 4px;
 }
 .match-grid::-webkit-scrollbar-thumb {
-  background: #409EFF;
+  background: #D2A76D;
   border-radius: 4px;
 }
 
 .grid-card {
   flex: 0 0 200px;
   height: 90px;
-  background: rgba(13, 17, 23, 0.6);
-  border: 1px solid #30363d;
-  border-left: 3px solid transparent;
+  background: rgba(30, 26, 23, 0.6);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
@@ -864,23 +954,23 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(5px);
+  border-radius: 6px; /* Added border-radius so edge glow looks good */
 }
 
 .grid-card:hover {
   transform: translateY(-5px);
-  border-left-color: #409EFF;
-  background: rgba(30, 40, 55, 0.8);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+  background: rgba(45, 38, 30, 0.8);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.8), inset 4px 0 10px rgba(210, 167, 109, 0.5), inset 2px 2px 15px rgba(255, 193, 7, 0.05), inset -2px -2px 15px rgba(255, 193, 7, 0.05) !important;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   font-size: 0.7rem;
-  color: #8b949e;
+  color: #A0A0A0;
 }
 
-.card-group { color: #409EFF; font-weight: bold; }
+.card-group { color: #D2A76D; font-weight: bold; }
 
 .card-teams {
   display: flex;
@@ -891,7 +981,7 @@ onMounted(async () => {
   font-weight: bold;
 }
 
-.t-vs { font-size: 0.75rem; color: #e6a23c; font-style: italic; }
+.t-vs { font-size: 0.75rem; color: #A67C41; font-style: italic; }
 
 .card-footer {
   font-size: 0.65rem;

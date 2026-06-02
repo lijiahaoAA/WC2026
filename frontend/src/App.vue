@@ -9,7 +9,7 @@
           <img src="/favicon.png" alt="Logo" class="logo-img" />
           <span class="title" >WC2026 智能投注辅助决策引擎</span>
         </div>
-        <el-menu mode="horizontal" :router="true" :default-active="$route.path" class="nav-menu" background-color="transparent" text-color="#A0A0A0" active-text-color="#00BFFF">
+        <el-menu mode="horizontal" :router="true" :default-active="$route.path" class="nav-menu" background-color="transparent" text-color="#A0A0A0" active-text-color="#D2A76D">
           <el-menu-item index="/">赛事大屏</el-menu-item>
           <el-menu-item index="/teams">球队库</el-menu-item>
           <el-menu-item index="/players">球员库</el-menu-item>
@@ -58,11 +58,12 @@ body, html {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #141416 0%, #08080A 100%); /* Deep charcoal to warm black */
 }
 .layout-container {
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #121212 0%, #1A1B22 100%);
+  background: transparent; /* 必须透明才能露出底层的3D模型 */
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -85,9 +86,9 @@ body, html {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(13, 17, 23, 0.8);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  background: rgba(18, 18, 18, 0.85); /* 更接近黑曜石 */
+  backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(210, 167, 109, 0.15); /* 香槟金弱边框 */
   padding: 0 40px;
   height: 60px;
   position: relative;
@@ -98,7 +99,9 @@ body, html {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #00BFFF; /* 科技蓝 */
+  background: linear-gradient(135deg, #D2A76D 0%, #A67C41 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .logo-img {
@@ -167,5 +170,45 @@ body, html {
 .el-table tr {
   background-color: #161b22 !important;
   color: #c9d1d9;
+}
+
+/* ================= 全局玻璃拟态面板光照边缘优化 ================= */
+.glass-panel {
+  border: none !important;
+  position: relative;
+  /* 基础底色由各自组件决定，这里只控制光照边缘和阴影 */
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), /* 若隐若现的接地阴影，增加悬浮感 */
+              inset 2px 2px 15px rgba(255, 193, 7, 0.05), /* 左上内边缘柔和琥珀色 */
+              inset -2px -2px 15px rgba(255, 193, 7, 0.05) !important; /* 右下内边缘柔和琥珀色 */
+}
+
+/* 顶部边缘：柔和、弥漫的古铜金“眉毛” */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(62, 51, 36, 0) 0%, rgba(146, 122, 89, 0.4) 15%, rgba(146, 122, 89, 0.15) 30%, rgba(62, 51, 36, 0) 100%);
+  filter: blur(1px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 2;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+/* 底部边缘：稍重的弥漫光，进一步模糊 */
+.glass-panel::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(62, 51, 36, 0) 10%, rgba(146, 122, 89, 0.5) 50%, rgba(62, 51, 36, 0) 90%);
+  filter: blur(3px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 2;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
 }
 </style>

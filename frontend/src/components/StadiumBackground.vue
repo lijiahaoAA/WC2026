@@ -18,7 +18,7 @@ let animationId: number
 let stadiumModel: THREE.Group | null = null
 
 // 目标位置，用于平滑过渡
-const targetCameraPos = new THREE.Vector3(0, 80, 150) // 首页默认机位拉近放大
+const targetCameraPos = new THREE.Vector3(0, 110, 150) // 首页默认机位拉近放大，y轴原为80，现上拉到110以增加俯视感
 const targetControlsTarget = new THREE.Vector3(0, -10, 0)
 let isUserInteracting = false // 记录用户是否在手动控制
 
@@ -43,20 +43,22 @@ const initThreeJS = () => {
   container.appendChild(renderer.domElement)
 
   // 灯光
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+  const ambientLight = new THREE.AmbientLight(0xffeedd, 0.6) // 暖色环境光
   scene.add(ambientLight)
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.5)
   dirLight.position.set(100, 200, 50)
   scene.add(dirLight)
 
-  const blueLight = new THREE.PointLight(0x409EFF, 2000, 500)
-  blueLight.position.set(-50, 50, 0)
-  scene.add(blueLight)
+  // 左侧打上香槟金色的点光源
+  const goldLightLeft = new THREE.PointLight(0xD2A76D, 2000, 500)
+  goldLightLeft.position.set(-50, 50, 0)
+  scene.add(goldLightLeft)
 
-  const greenLight = new THREE.PointLight(0x67C23A, 2000, 500)
-  greenLight.position.set(50, 50, 0)
-  scene.add(greenLight)
+  // 右侧打上略微深沉的琥珀/古铜色点光源
+  const amberLightRight = new THREE.PointLight(0xFFC107, 1500, 500)
+  amberLightRight.position.set(50, 50, 0)
+  scene.add(amberLightRight)
 
   // 控制器
   controls = new OrbitControls(camera, renderer.domElement)
@@ -87,7 +89,7 @@ const initThreeJS = () => {
     const box = new THREE.Box3().setFromObject(stadiumModel)
     const center = box.getCenter(new THREE.Vector3())
     stadiumModel.position.sub(center)
-    stadiumModel.position.y -= 30 
+    stadiumModel.position.y += 5 // 向上调整模型位置（原来是+20，现在往下一点点改为+5）
     scene.add(stadiumModel)
   })
 

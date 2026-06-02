@@ -3,11 +3,14 @@ import glob
 import json
 import psycopg2
 from psycopg2.extras import Json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_PARAMS = {
     "dbname": "postgres",
     "user": "postgres",
-    "password": "002505@Zx",
+    "password": os.getenv("DB_PASSWORD", "postgres"),
     "host": "localhost",
     "port": 5432
 }
@@ -133,17 +136,36 @@ def sync_new_teams_data():
             ))
             total_players_inserted += 1
             
-        # 简单逻辑：将前11个位置不是教练的球员设为首发
+        # 简单逻辑：按照 4-3-3 阵型分配首发 (1门将, 4后卫, 3中场, 3前锋)
+        cur.execute("""
+            WITH RankedPlayers AS (
+                SELECT id, position,
+                    ROW_NUMBER() OVER(PARTITION BY position ORDER BY overall_rating DESC NULLS LAST) as rn
+                FROM players_detailed
+                WHERE team_id = %s AND position != '教练'
+            )
+            UPDATE players_detailed 
+            SET is_starter = TRUE 
+            WHERE id IN (
+                SELECT id FROM RankedPlayers 
+                WHERE (position = '门将' AND rn <= 1)
+                   OR (position = '后卫' AND rn <= 4)
+                   OR (position = '中场' AND rn <= 3)
+                   OR (position = '前锋' AND rn <= 3)
+            )
+        """, (team_id,))
+        
+        # 补齐不足 11 人的情况
         cur.execute("""
             UPDATE players_detailed 
             SET is_starter = TRUE 
             WHERE id IN (
                 SELECT id FROM players_detailed 
-                WHERE team_id = %s 
+                WHERE team_id = %s AND position != '教练' AND is_starter = FALSE
                 ORDER BY overall_rating DESC NULLS LAST 
-                LIMIT 11
+                LIMIT (11 - (SELECT COUNT(*) FROM players_detailed WHERE team_id = %s AND is_starter = TRUE))
             )
-        """, (team_id,))
+        """, (team_id, team_id))
 
     conn.commit()
     cur.close()
