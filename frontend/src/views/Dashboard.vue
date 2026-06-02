@@ -400,7 +400,7 @@ onMounted(async () => {
 /* ======= 顶部挂件优化 ======= */
 .top-widgets {
   position: absolute;
-  top: 90px; /* 从 15px 下移到 90px，与中央的球队卡片（margin-top: -60px，相对于父级 paddingTop 50px）顶部对齐 */
+  top: 60px; /* 从 90px 上移到 60px，与中央球队卡片的视觉顶部保持完全一致 */
   right: 30px;
   display: flex;
   gap: 15px;
