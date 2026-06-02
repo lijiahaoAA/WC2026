@@ -8,7 +8,7 @@
 
 ## 🖥️ 系统展示
 
-![WC2026 智能大屏截图](screenshot.png)
+<img width="2559" height="1271" alt="d349c904-47bc-43ef-bf9e-b69331cfd213" src="https://github.com/user-attachments/assets/5204f44d-b2f2-4526-8334-66191593a268" />
 *现代科技风格的数据大屏：包含沉浸式 3D 体育场模型、实时赛程、球队与球员数据面板。*
 
 ---
