@@ -6,9 +6,15 @@
 
     <div class="prediction-content">
       <div class="match-teams">
-        <h1 class="team-text">{{ team1 }}</h1>
+        <div class="team-side">
+          <span class="ha-tag ha-home">主</span>
+          <h1 class="team-text">{{ team1 }}</h1>
+        </div>
         <div class="vs-text">VS</div>
-        <h1 class="team-text">{{ team2 }}</h1>
+        <div class="team-side">
+          <span class="ha-tag ha-away">客</span>
+          <h1 class="team-text">{{ team2 }}</h1>
+        </div>
       </div>
 
       <!-- 模型选择区 -->
@@ -304,6 +310,32 @@ onMounted(async () => {
   align-items: center;
   gap: 40px;
   margin-bottom: 30px;
+}
+
+.team-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 主客场标签 */
+.ha-tag {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 2px 14px;
+  border-radius: 10px;
+  letter-spacing: 2px;
+}
+.ha-home {
+  color: #1a1410;
+  background: linear-gradient(135deg, #E8C389 0%, #D2A76D 100%);
+  box-shadow: 0 0 12px rgba(210, 167, 109, 0.5);
+}
+.ha-away {
+  color: #c9d1d9;
+  background: rgba(100, 100, 100, 0.25);
+  border: 1px solid rgba(160, 160, 160, 0.4);
 }
 
 .team-text {

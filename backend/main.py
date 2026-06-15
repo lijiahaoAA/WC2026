@@ -299,6 +299,142 @@ def extract_short_answer(text, field_name):
         return text
 
 
+# ============================================================
+# 结构化预测：单模型单次调用一次性产出全部字段（保证内部自洽）
+# ============================================================
+
+PREDICTION_JSON_FIELDS = ["score", "total_goals", "red_cards", "penalties", "advice"]
+
+STRUCTURED_SYSTEM_MSG = (
+    "你是资深的足球预测专家和精算师。请严格只输出一个 JSON 对象，包含且仅包含以下 5 个字段："
+    "score、total_goals、red_cards、penalties、advice。绝对要求：\n"
+    "1. 禁止输出 markdown 代码块标记（禁止 ```json）、禁止输出推理过程、禁止输出 JSON 以外的任何文字或前后缀。\n"
+    '2. score 必须是「主队:客队」格式（如 "2:1"），主队在前。\n'
+    "3. advice 中提到的比分、总进球数必须与 score、total_goals 字段完全一致，严禁自相矛盾。\n"
+    "4. advice 内部禁止使用英文双引号，需要引用时使用中文引号『』或单引号；advice 内可包含换行。\n"
+    "5. 各字段之间必须相互自洽（如 score 为 2:1，则 total_goals 不能是 2 球）。"
+)
+
+STRUCTURED_PROMPT_SUFFIX = (
+    "\n基于以上赛事数据，请一次性给出你的完整预测结论，严格输出为一个 JSON 对象，字段如下：\n"
+    '- "score"：最终比分，格式「主队:客队」，如 "2:1"（注意：{team1} 为主队、{team2} 为客队，务必按主队:客队顺序输出）。\n'
+    '- "total_goals"：本场总进球数，如 "3球" 或 "2-3球"，必须与比分两端之和自洽。\n'
+    '- "red_cards"：红牌预警一句话，如 "红牌概率低，预计0张"。\n'
+    '- "penalties"：点球或点球大战概率，一两句话。\n'
+    '- "advice"：详细专家投注建议（结合基本面、六维能力雷达图、让球盘等，约 500 字）。'
+    "advice 中引用的比分与进球数必须与上面的 score、total_goals 完全一致，禁止自相矛盾。\n"
+    "只输出 JSON 对象本身，不要任何解释、不要 markdown、不要前后缀。"
+)
+
+
+def _repair_json_control_chars(s):
+    """修复 JSON 字符串值内部的裸控制字符（思考模型常见破坏点）。仅在双引号字符串内部转义裸 \\n \\r \\t。"""
+    out = []
+    in_str = False
+    esc = False
+    for ch in s:
+        if esc:
+            out.append(ch); esc = False; continue
+        if ch == '\\':
+            out.append(ch); esc = True; continue
+        if ch == '"':
+            in_str = not in_str; out.append(ch); continue
+        if in_str:
+            if ch == '\n':
+                out.append('\\n'); continue
+            if ch == '\r':
+                out.append('\\r'); continue
+            if ch == '\t':
+                out.append('\\t'); continue
+        out.append(ch)
+    return ''.join(out)
+
+
+def _regex_extract_field(text, field):
+    """逐字段正则兜底提取。优先字符串值，其次数字/bool。"""
+    m = re.search(rf'"{re.escape(field)}"\s*:\s*"((?:[^"\\]|\\.)*)"', text, flags=re.DOTALL)
+    if m:
+        val = m.group(1)
+        return val.replace('\\n', '\n').replace('\\t', '\t').replace('\\"', '"').replace('\\\\', '\\')
+    m = re.search(rf'"{re.escape(field)}"\s*:\s*([^,}}\s]+)', text)
+    if m:
+        return m.group(1).strip()
+    return ""
+
+
+def _normalize_field(field, val):
+    """字段级清理：去外层引号、markdown 符号。"""
+    if not val:
+        return ""
+    val = val.strip()
+    if len(val) >= 2 and val[0] == '"' and val[-1] == '"':
+        val = val[1:-1]
+    val = re.sub(r'\*\*|__|~~|`', '', val)
+    return val.strip()
+
+
+def _normalize_score(val):
+    """规整比分成 x:y。"""
+    if not val:
+        return ""
+    m = re.search(r'(\d+)\s*[:：\-]\s*(\d+)', val)
+    if m:
+        return f"{m.group(1)}:{m.group(2)}"
+    return val
+
+
+def parse_structured_prediction(raw):
+    """
+    解析模型输出为 5 字段 dict（分层降级，保证始终返回 5 个 key）。
+    1) 剥 <think>/代码块围栏；2) 截 {..} 走 json.loads；3) 修复裸控制字符再 loads；
+    4) 关键字段缺失时逐字段正则兜底。
+    """
+    result = {f: "" for f in PREDICTION_JSON_FIELDS}
+    if not raw or not raw.strip():
+        return result
+
+    text = raw
+    # 剥除思考标签（含未闭合开标签，应对 max_tokens 截断）与其他包裹
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    text = re.sub(r'<think>.*$', '', text, flags=re.DOTALL)
+    text = re.sub(r'</?(?:output|answer|response)>', '', text, flags=re.IGNORECASE)
+    # 剥除 markdown 代码块围栏
+    text = re.sub(r'```(?:json)?', '', text, flags=re.IGNORECASE)
+
+    start = text.find('{')
+    end = text.rfind('}')
+    json_str = text[start:end + 1] if start != -1 and end != -1 and end > start else None
+
+    parsed = None
+    if json_str:
+        try:
+            parsed = json.loads(json_str)
+        except json.JSONDecodeError:
+            try:
+                parsed = json.loads(_repair_json_control_chars(json_str))
+            except Exception:
+                parsed = None
+
+    if isinstance(parsed, dict):
+        for f in PREDICTION_JSON_FIELDS:
+            v = parsed.get(f)
+            if v is not None:
+                result[f] = _normalize_field(f, str(v).strip())
+
+    result['score'] = _normalize_score(result['score'])
+
+    # 关键字段仍缺失 → 逐字段正则兜底
+    if not result['score'] or not result['advice']:
+        for f in PREDICTION_JSON_FIELDS:
+            if not result[f]:
+                val = _regex_extract_field(text, f)
+                if val:
+                    result[f] = _normalize_field(f, val)
+        result['score'] = _normalize_score(result['score'])
+
+    return result
+
+
 def check_or_upsert_prediction(req, field_name, prompt_addition, max_tokens, model_id="default", model_cfg=None):
     """
     单字段预测（支持多模型）。
@@ -350,7 +486,7 @@ def check_or_upsert_prediction(req, field_name, prompt_addition, max_tokens, mod
 
 @app.post("/api/predict/score")
 def predict_score(req: LLMPredictionRequest):
-    return check_or_upsert_prediction(req, "score", "请预测本场比赛的最终比分。要求：只直接输出比分结果（例如：2:1 或 1:1），不要输出任何其他废话或解释。", 20)
+    return check_or_upsert_prediction(req, "score", "请预测本场比赛的最终比分。要求：按「主队:客队」顺序，主队在前、客队在后，只直接输出比分（例如 2:1），不要输出任何其他废话或解释。", 20)
 
 @app.post("/api/predict/goals")
 def predict_goals(req: LLMPredictionRequest):
@@ -380,12 +516,96 @@ def list_models():
 
 
 PREDICTION_FIELDS = [
-    ("score",       "请预测本场比赛的最终比分。要求：只直接输出比分结果（例如：2:1 或 1:1），不要输出任何其他废话或解释。", 100),
+    ("score",       "请预测本场比赛的最终比分。要求：按「主队:客队」顺序，主队在前、客队在后，只直接输出比分（例如 2:1），不要输出任何其他废话或解释。", 100),
     ("total_goals", "请预测本场比赛的总进球数。要求：只直接输出结果（例如：3球 或 2-3球），不要输出任何其他废话。", 100),
     ("red_cards",   "请预测本场比赛出现红牌的概率或数量预警。要求：用非常简短的一句话直接描述（例如：红牌概率低，或预计1张红牌），不要废话。", 200),
     ("penalties",   "请预测本场比赛出现点球或进入点球大战的概率。要求：用简短的一两句话直接描述，不要废话。", 200),
     ("advice",      "请给出详细的专家投注建议（结合基本面、六维能力雷达图、让球盘等，字数500字左右）。直接输出文本，不要包含任何前缀或Markdown代码块格式。", 2000),
 ]
+
+
+def predict_all_fields_for_model(team1_name, team2_name, model_id, model_cfg, force_refresh):
+    """
+    单模型单次结构化预测：一次 LLM 调用一次性产出全部 5 个字段，保证内部自洽。
+    返回 {score, total_goals, red_cards, penalties, advice} dict。
+    任何异常/解析失败均在内部消化为占位 dict（不抛出，避免 predict_multi 整体 500）。
+    """
+    placeholder = {
+        "score": "", "total_goals": "", "red_cards": "", "penalties": "",
+        "advice": "分析失败",
+    }
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # 1. 查缓存：仅当 5 字段都非空才命中（旧的部分缓存会被整体重算覆盖）
+        if not force_refresh:
+            cur.execute(
+                "SELECT score, total_goals, red_cards, penalties, advice "
+                "FROM match_predictions WHERE team1 = %s AND team2 = %s AND model_id = %s",
+                (team1_name, team2_name, model_id),
+            )
+            row = cur.fetchone()
+            if row and all(row.get(f) for f in PREDICTION_JSON_FIELDS):
+                return {f: row[f] for f in PREDICTION_JSON_FIELDS}
+        cur.close()
+
+        # 2. 构造 prompt（{team1}/{team2} 用 replace 注入，避免与 JSON 花括号冲突）
+        context = get_match_context(team1_name, team2_name)
+        prompt = context + STRUCTURED_PROMPT_SUFFIX.replace("{team1}", team1_name).replace("{team2}", team2_name)
+        messages = [
+            {"role": "system", "content": STRUCTURED_SYSTEM_MSG},
+            {"role": "user", "content": prompt},
+        ]
+
+        # 3. 单次调用（max_tokens 容纳 advice 且防截断；temperature 降低以提升结构化稳定性）
+        raw = call_llm(
+            model_cfg["provider"], model_cfg["api_key"], model_cfg["base_url"],
+            model_cfg["model"], messages, max_tokens=2600, temperature=0.4,
+        )
+
+        # 4. 解析（分层降级）
+        result = parse_structured_prediction(raw)
+
+        # 5. 解析失败（关键字段全空）→ 返回占位，不写库（避免脏数据污染缓存）
+        if not result["score"] and not result["advice"]:
+            print(f"[WARN] {model_id} 结构化解析失败: {(raw or '')[:200]}")
+            return placeholder
+
+        # 6. 一次性 UPSERT 5 列（写库失败不影响返回）
+        try:
+            wcur = conn.cursor()
+            wcur.execute(
+                """
+                INSERT INTO match_predictions (team1, team2, model_id, score, total_goals, red_cards, penalties, advice, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (team1, team2, model_id) DO UPDATE SET
+                    score = EXCLUDED.score,
+                    total_goals = EXCLUDED.total_goals,
+                    red_cards = EXCLUDED.red_cards,
+                    penalties = EXCLUDED.penalties,
+                    advice = EXCLUDED.advice,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (team1_name, team2_name, model_id, result["score"], result["total_goals"],
+                 result["red_cards"], result["penalties"], result["advice"]),
+            )
+            conn.commit()
+            wcur.close()
+        except Exception as e:
+            print(f"[WARN] {model_id} 写库失败（不影响返回）: {e}")
+
+        return result
+    except Exception as e:
+        print(f"[ERROR] {model_id} 单次结构化预测异常: {e}")
+        return placeholder
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 class MultiPredictionRequest(BaseModel):
@@ -403,17 +623,12 @@ def predict_multi(req: MultiPredictionRequest):
     def predict_for_model(model_id):
         cfg = get_model_params(model_id)
         if not cfg:
-            return model_id, {"status": "error", "message": f"模型 {model_id} 未配置"}
-        model_result = {}
-        for field_name, prompt_addition, max_tokens in PREDICTION_FIELDS:
-            fake_req = type('Req', (), {
-                'team1_name': req.team1_name,
-                'team2_name': req.team2_name,
-                'force_refresh': req.force_refresh
-            })()
-            resp = check_or_upsert_prediction(fake_req, field_name, prompt_addition, max_tokens,
-                                              model_id=model_id, model_cfg=cfg)
-            model_result[field_name] = resp.get("data", resp.get("message", "错误"))
+            return model_id, {"score": "", "total_goals": "", "red_cards": "",
+                              "penalties": "", "advice": f"模型 {model_id} 未配置"}
+        # 单次调用一次性产出全部 5 个字段，保证内部自洽
+        model_result = predict_all_fields_for_model(
+            req.team1_name, req.team2_name, model_id, cfg, req.force_refresh
+        )
         return model_id, model_result
 
     with ThreadPoolExecutor(max_workers=min(len(req.model_ids), 5)) as executor:

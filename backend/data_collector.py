@@ -449,8 +449,11 @@ def get_match_context_with_live_data(team1_name, team2_name):
         return text
 
     context = "你是一个专业的足球赛事分析师和彩票精算师。请基于以下包含真实世界杯比赛数据的信息进行分析。\n\n"
+    context += f"【主队】{team1_name}（主场作战）\n"
     context += format_team(team1_name)
+    context += f"【客队】{team2_name}\n"
     context += format_team(team2_name)
+    context += f"\n注：本场比赛 {team1_name} 为主队，{team2_name} 为客队。预测比分请按「主队:客队」顺序输出（主队进球在前，例如主队2球客队1球写作 2:1）。\n"
 
     cur.close()
     conn.close()

@@ -88,7 +88,7 @@
         <!-- 左侧主队名与档案 -->
         <div class="team-panel left-team">
           <div class="team-card glass-panel">
-            <h1 class="team-name">{{ focusMatch.team1 }}</h1>
+            <h1 class="team-name">{{ focusMatch.team1 }}<span class="ha-tag ha-home">主</span></h1>
             <div class="team-info-blocks" v-if="team1Data">
               <div class="info-block">
                 <span class="block-label">FIFA</span>
@@ -134,7 +134,7 @@
         <!-- 右侧客队名与档案 -->
         <div class="team-panel right-team">
           <div class="team-card glass-panel">
-            <h1 class="team-name">{{ focusMatch.team2 }}</h1>
+            <h1 class="team-name">{{ focusMatch.team2 }}<span class="ha-tag ha-away">客</span></h1>
             <div class="team-info-blocks" v-if="team2Data">
               <div class="info-block">
                 <span class="block-label">FIFA</span>
@@ -250,16 +250,16 @@
           </div>
           <!-- 有比分时显示比分，否则显示 vs -->
           <div v-if="match.team1_score !== null && match.team1_score !== undefined" class="card-score">
-            <span class="s-team">{{ match.team1 }}</span>
+            <span class="s-team">{{ match.team1 }}<span class="ha-tag ha-home">主</span></span>
             <span class="s-num">{{ match.team1_score }}</span>
             <span class="s-sep">-</span>
             <span class="s-num">{{ match.team2_score }}</span>
-            <span class="s-team">{{ match.team2 }}</span>
+            <span class="s-team">{{ match.team2 }}<span class="ha-tag ha-away">客</span></span>
           </div>
           <div v-else class="card-teams">
-            <span class="t-name">{{ match.team1 }}</span>
+            <span class="t-name">{{ match.team1 }}<span class="ha-tag ha-home">主</span></span>
             <span class="t-vs">vs</span>
-            <span class="t-name">{{ match.team2 }}</span>
+            <span class="t-name">{{ match.team2 }}<span class="ha-tag ha-away">客</span></span>
           </div>
           <div class="card-footer">
             {{ match.date }}<br/>{{ match.stadium }}
@@ -921,6 +921,33 @@ onMounted(async () => {
   position: relative;
   z-index: 2;
   white-space: nowrap;
+}
+
+/* 主客场标签 */
+.ha-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 8px;
+  margin-left: 6px;
+  letter-spacing: 1px;
+  vertical-align: middle;
+}
+.ha-home {
+  color: #1a1410;
+  background: linear-gradient(135deg, #E8C389 0%, #D2A76D 100%);
+}
+.ha-away {
+  color: #c9d1d9;
+  background: rgba(100, 100, 100, 0.25);
+  border: 1px solid rgba(160, 160, 160, 0.4);
+}
+/* 赛程卡片里更小 */
+.s-team .ha-tag, .t-name .ha-tag {
+  font-size: 0.55rem;
+  padding: 0 5px;
+  margin-left: 3px;
 }
 
 /* 队名下方横向排列的球队档案模块框 */
