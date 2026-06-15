@@ -22,6 +22,11 @@ const router = createRouter({
       path: '/prediction',
       name: 'Prediction',
       component: () => import('../views/Prediction.vue')
+    },
+    {
+      path: '/settings',
+      name: 'Settings',
+      component: () => import('../views/Settings.vue')
     }
   ]
 })

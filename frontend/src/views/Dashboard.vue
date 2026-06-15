@@ -9,7 +9,7 @@
     <!-- 顶部数据挂件区 -->
     <div class="top-widgets">
       <div class="widget-box glass-panel">
-        <div class="w-title">赛事倒计时</div>
+        <div class="w-title">下一场倒计时</div>
         <div class="w-value highlight">{{ countdownDays }} <span class="unit">天</span></div>
       </div>
       <div class="widget-box glass-panel">
@@ -26,7 +26,7 @@
     <div class="focus-section" v-if="focusMatch">
       <div class="focus-title">
         <div class="live-dot"></div>
-        <span>NEXT MATCH // 揭幕战</span>
+        <span>NEXT MATCH // {{ focusMatch?.group || '即将开赛' }}</span>
       </div>
       
       <div class="focus-match-display" @click="goToDetail(focusMatch)">
@@ -217,24 +217,46 @@
       </div>
     </div>
 
-    <!-- 底部赛程滑动区 -->
+    <!-- 底部赛程区 -->
     <div class="schedule-section">
-      <div class="section-title">
-        <span class="bracket">[</span> UPCOMING SCHEDULE <span class="bracket">]</span>
+      <div class="section-header">
+        <div class="section-title">
+          <span class="bracket">[</span> MATCH SCHEDULE <span class="bracket">]</span>
+        </div>
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <el-input
+            v-model="searchTeam"
+            placeholder="搜索球队..."
+            clearable
+            size="small"
+            class="search-input"
+            prefix-icon="Search"
+          />
+        </div>
       </div>
-      <div class="match-grid">
+      <div class="match-grid" ref="matchGridRef">
         <div
           class="grid-card glass-panel"
-          v-for="(match, index) in upcomingMatches"
+          :class="{ 'is-past': isPast(match), 'has-prediction': match.has_prediction }"
+          v-for="(match, index) in filteredMatches"
           :key="index"
           @click="goToDetail(match)"
         >
-          <div class="card-glow"></div>
+          <div class="card-glow" style="pointer-events:none;"></div>
           <div class="card-header">
             <span class="card-group">{{ match.group }}</span>
             <span class="card-time">{{ match.time }}</span>
           </div>
-          <div class="card-teams">
+          <!-- 有比分时显示比分，否则显示 vs -->
+          <div v-if="match.team1_score !== null && match.team1_score !== undefined" class="card-score">
+            <span class="s-team">{{ match.team1 }}</span>
+            <span class="s-num">{{ match.team1_score }}</span>
+            <span class="s-sep">-</span>
+            <span class="s-num">{{ match.team2_score }}</span>
+            <span class="s-team">{{ match.team2 }}</span>
+          </div>
+          <div v-else class="card-teams">
             <span class="t-name">{{ match.team1 }}</span>
             <span class="t-vs">vs</span>
             <span class="t-name">{{ match.team2 }}</span>
@@ -242,14 +264,76 @@
           <div class="card-footer">
             {{ match.date }}<br/>{{ match.stadium }}
           </div>
+          <!-- 状态标签：左下角赛事状态 + 右下角分析状态 -->
+          <div class="card-badges">
+            <div v-if="isPast(match)" class="card-badge past">已开赛</div>
+            <div v-else class="card-badge upcoming">未开赛</div>
+            <div v-if="match.has_prediction" class="card-badge predicted">已分析</div>
+          </div>
+        </div>
+        <div v-if="filteredMatches.length === 0" class="no-matches">
+          暂无匹配的赛程
         </div>
       </div>
     </div>
+
+    <!-- 比赛结果弹窗：传送到 body 避免 pointer-events 问题 -->
+    <Teleport to="body">
+      <el-dialog v-model="resultDialogVisible" width="600px" class="result-dialog" :show-close="true" destroy-on-close>
+      <template #header>
+        <div class="result-title">
+          <span>{{ resultMatch?.group }}</span>
+        </div>
+      </template>
+      <div v-if="resultMatch" class="result-content">
+        <!-- 比分 -->
+        <div class="result-score-row">
+          <div class="result-team">
+            <h2>{{ resultMatch.team1 }}</h2>
+          </div>
+          <div class="result-score-box">
+            <span class="result-num">{{ resultMatch.team1_score ?? '-' }}</span>
+            <span class="result-sep">:</span>
+            <span class="result-num">{{ resultMatch.team2_score ?? '-' }}</span>
+          </div>
+          <div class="result-team">
+            <h2>{{ resultMatch.team2 }}</h2>
+          </div>
+        </div>
+        <div class="result-info">
+          <span>{{ resultMatch.date }} {{ resultMatch.time }}</span>
+          <span>{{ resultMatch.stadium }}</span>
+        </div>
+
+        <!-- 预测结果（如有） -->
+        <div v-if="resultMatch.has_prediction" class="result-prediction">
+          <h4>赛前预测 vs 实际结果</h4>
+          <div v-for="(pred, mid) in matchPredictions" :key="mid" class="pred-block">
+            <div class="pred-model">{{ mid }}</div>
+            <div class="pred-detail">
+              <span>预测比分: <strong>{{ pred.score || '-' }}</strong></span>
+              <span>总进球: <strong>{{ pred.total_goals || '-' }}</strong></span>
+            </div>
+          </div>
+          <div v-if="Object.keys(matchPredictions).length === 0" class="pred-empty">
+            加载预测数据中...
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="result-actions">
+          <el-button type="primary" class="cyber-btn" @click="viewPrediction(resultMatch)">
+            查看完整预测分析
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
@@ -259,20 +343,44 @@ const router = useRouter()
 const scheduleData = ref<any[]>([])
 const team1Data = ref<any>(null)
 const team2Data = ref<any>(null)
+const searchTeam = ref('')
+const matchGridRef = ref<HTMLElement | null>(null)
 
-const countdownDays = computed(() => {
-  const today = new Date()
-  const kickoff = new Date('2026-06-11T00:00:00') // 2026美加墨世界杯揭幕战时间
-  const diff = kickoff.getTime() - today.getTime()
-  return diff > 0 ? Math.ceil(diff / (1000 * 3600 * 24)) : 0
+// 将赛程中的日期时间字符串转为 Date 对象
+function parseMatchDate(match: any): Date {
+  const dateStr = match.date.replace(/年|月/g, '-').replace('日', '')
+  return new Date(`${dateStr}T${match.time}:00`)
+}
+
+function isPast(match: any): boolean {
+  return parseMatchDate(match) <= new Date()
+}
+
+// 过滤出尚未开赛的比赛（用于焦点比赛）
+const upcomingSchedule = computed(() => {
+  const now = new Date()
+  return scheduleData.value.filter(m => parseMatchDate(m) > now)
 })
 
 const focusMatch = computed(() => {
-  return scheduleData.value.length > 0 ? scheduleData.value[0] : null
+  return upcomingSchedule.value.length > 0 ? upcomingSchedule.value[0] : null
 })
 
-const upcomingMatches = computed(() => {
-  return scheduleData.value.length > 1 ? scheduleData.value.slice(1) : []
+const countdownDays = computed(() => {
+  if (!focusMatch.value) return 0
+  const now = new Date()
+  const kickoff = parseMatchDate(focusMatch.value)
+  const diff = kickoff.getTime() - now.getTime()
+  return diff > 0 ? Math.ceil(diff / (1000 * 3600 * 24)) : 0
+})
+
+// 搜索过滤后的所有比赛（已赛+未赛）
+const filteredMatches = computed(() => {
+  const q = searchTeam.value.trim().toLowerCase()
+  if (!q) return scheduleData.value
+  return scheduleData.value.filter(m =>
+    m.team1.toLowerCase().includes(q) || m.team2.toLowerCase().includes(q)
+  )
 })
 
 const fetchTeamData = async (teamName: string, isTeam1: boolean) => {
@@ -296,15 +404,42 @@ watch(focusMatch, (newMatch) => {
     fetchTeamData(newMatch.team1, true)
     fetchTeamData(newMatch.team2, false)
   }
-})
+}, { immediate: true })
 
 const fetchSchedule = async () => {
   try {
-    const res = await axios.get('http://localhost:10086/api/schedule')
+    const res = await axios.get('http://localhost:10086/api/schedule/all')
     scheduleData.value = res.data
+    // 赛程加载完成后，立即获取焦点比赛的球队数据
+    if (focusMatch.value) {
+      fetchTeamData(focusMatch.value.team1, true)
+      fetchTeamData(focusMatch.value.team2, false)
+    }
+    // 自动滚动到下一场未开赛比赛
+    scrollToNextMatch()
   } catch (error) {
     ElMessage.error('无法加载赛程数据，请检查后端服务')
   }
+}
+
+function scrollToNextMatch() {
+  nextTick(() => {
+    if (!matchGridRef.value) return
+    const cards = matchGridRef.value.querySelectorAll('.grid-card')
+    const now = new Date()
+    // 找到第一个未开赛的卡片
+    for (let i = 0; i < filteredMatches.value.length; i++) {
+      if (!isPast(filteredMatches.value[i])) {
+        const card = cards[i] as HTMLElement
+        if (card) {
+          // 滚动到该卡片的左边缘对齐容器左边缘
+          const offsetLeft = card.offsetLeft
+          matchGridRef.value.scrollTo({ left: offsetLeft - 10, behavior: 'smooth' })
+        }
+        break
+      }
+    }
+  })
 }
 
 const getPosClass = (pos: string) => {
@@ -329,7 +464,42 @@ const getRatingClass = (rating: number) => {
   return 'rating-bronze';
 }
 
+// 比赛结果弹窗
+const resultDialogVisible = ref(false)
+const resultMatch = ref<any>(null)
+const matchPredictions = ref<Record<string, any>>({})
+
 const goToDetail = (match: any) => {
+  // 已完赛且有比分 → 弹出比赛结果
+  if (match.team1_score !== null && match.team1_score !== undefined) {
+    showMatchResult(match)
+  } else {
+    // 未开赛 → 跳转预测页
+    router.push({
+      path: '/prediction',
+      query: { team1: match.team1, team2: match.team2 }
+    })
+  }
+}
+
+async function showMatchResult(match: any) {
+  resultMatch.value = match
+  resultDialogVisible.value = true
+  matchPredictions.value = {}
+
+  // 加载该比赛的预测数据
+  try {
+    const res = await axios.get(`http://localhost:10086/api/predictions/history/${match.team1}/${match.team2}`)
+    if (res.data.status === 'success') {
+      matchPredictions.value = res.data.data
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function viewPrediction(match: any) {
+  resultDialogVisible.value = false
   router.push({
     path: '/prediction',
     query: { team1: match.team1, team2: match.team2 }
@@ -954,7 +1124,8 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(5px);
-  border-radius: 6px; /* Added border-radius so edge glow looks good */
+  border-radius: 6px;
+  pointer-events: auto;
 }
 
 .grid-card:hover {
@@ -983,9 +1154,292 @@ onMounted(async () => {
 
 .t-vs { font-size: 0.75rem; color: #A67C41; font-style: italic; }
 
+/* 比分显示 */
+.card-score {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+
+.s-team {
+  max-width: 70px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.s-num {
+  font-size: 1.3rem;
+  font-weight: 900;
+  font-family: 'Courier New', Courier, monospace;
+  color: #D2A76D;
+  text-shadow: 0 0 8px rgba(210, 167, 109, 0.4);
+  min-width: 20px;
+  text-align: center;
+}
+
+.s-sep {
+  color: #6e7681;
+  font-size: 1rem;
+}
+
 .card-footer {
   font-size: 0.65rem;
   color: #6e7681;
   text-align: center;
+  margin-bottom: 14px; /* 给底部标签留空间 */
+}
+
+/* ====== 赛程区头部 + 搜索框 ====== */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.search-box {
+  pointer-events: auto;
+}
+
+.search-input {
+  width: 180px;
+}
+:deep(.search-input .el-input__wrapper) {
+  background: rgba(30, 26, 23, 0.8) !important;
+  box-shadow: 0 0 0 1px rgba(210, 167, 109, 0.3) inset !important;
+  border-radius: 4px;
+}
+:deep(.search-input .el-input__inner) {
+  color: #c9d1d9 !important;
+  font-size: 0.8rem;
+}
+:deep(.search-input .el-input__inner::placeholder) {
+  color: #6e7681 !important;
+}
+:deep(.search-input .el-input__prefix .el-icon) {
+  color: #D2A76D;
+}
+
+/* ====== 已赛卡片样式 ====== */
+.grid-card.is-past {
+  opacity: 0.7;
+  background: rgba(20, 20, 25, 0.6);
+  border: 1px solid rgba(100, 100, 100, 0.15);
+}
+
+.grid-card.is-past:hover {
+  opacity: 1;
+  border-color: rgba(210, 167, 109, 0.4);
+}
+
+.grid-card.has-prediction {
+  border: 1px solid rgba(210, 167, 109, 0.25);
+}
+
+.grid-card.has-prediction:hover {
+  border-color: #D2A76D;
+}
+
+/* ====== 卡片状态标签 ====== */
+.card-badges {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.card-badge {
+  font-size: 0.5rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+  font-weight: bold;
+  line-height: 1.4;
+}
+
+.card-badge.predicted {
+  background: rgba(210, 167, 109, 0.2);
+  color: #D2A76D;
+  border: 1px solid rgba(210, 167, 109, 0.4);
+}
+
+.card-badge.past {
+  background: rgba(100, 100, 100, 0.2);
+  color: #8b949e;
+  border: 1px solid rgba(100, 100, 100, 0.3);
+}
+
+.card-badge.upcoming {
+  background: rgba(103, 194, 58, 0.15);
+  color: #67c23a;
+  border: 1px solid rgba(103, 194, 58, 0.3);
+}
+
+.grid-card {
+  position: relative;
+}
+
+.no-matches {
+  color: #6e7681;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+  width: 100%;
+}
+
+/* ====== 比赛结果弹窗（Teleport 到 body，用全局样式） ====== */
+</style>
+<style>
+.result-dialog .el-dialog {
+  background: #161b22 !important;
+  border: 1px solid rgba(210, 167, 109, 0.2) !important;
+  border-radius: 12px;
+}
+.result-dialog .el-dialog__header {
+  border-bottom: 1px solid rgba(210, 167, 109, 0.15);
+  padding: 15px 20px;
+}
+.result-dialog .el-dialog__body {
+  padding: 20px;
+}
+</style>
+<style scoped>
+
+.result-title {
+  color: #D2A76D;
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.result-content {
+  color: #c9d1d9;
+}
+
+.result-score-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 15px;
+}
+
+.result-team h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 900;
+  text-align: center;
+  color: #fff;
+}
+
+.result-score-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(30, 26, 23, 0.8);
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(210, 167, 109, 0.3);
+}
+
+.result-num {
+  font-size: 2.5rem;
+  font-weight: 900;
+  font-family: 'Courier New', Courier, monospace;
+  color: #D2A76D;
+  text-shadow: 0 0 15px rgba(210, 167, 109, 0.5);
+  min-width: 40px;
+  text-align: center;
+}
+
+.result-sep {
+  font-size: 2rem;
+  color: #6e7681;
+}
+
+.result-info {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  font-size: 0.8rem;
+  color: #A0A0A0;
+  margin-bottom: 20px;
+}
+
+.result-prediction {
+  background: rgba(30, 26, 23, 0.6);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.result-prediction h4 {
+  margin: 0 0 12px 0;
+  color: #D2A76D;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+}
+
+.pred-block {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(210, 167, 109, 0.1);
+}
+.pred-block:last-child {
+  border-bottom: none;
+}
+
+.pred-model {
+  color: #A0A0A0;
+  font-size: 0.8rem;
+}
+
+.pred-detail {
+  display: flex;
+  gap: 15px;
+  font-size: 0.8rem;
+  color: #c9d1d9;
+}
+
+.pred-detail strong {
+  color: #D2A76D;
+}
+
+.pred-empty {
+  color: #6e7681;
+  font-style: italic;
+  text-align: center;
+  padding: 10px;
+}
+
+.result-actions {
+  text-align: center;
+  margin-top: 15px;
+}
+
+.cyber-btn {
+  pointer-events: auto;
+  background: rgba(210, 167, 109, 0.1) !important;
+  border: 1px solid #D2A76D !important;
+  color: #D2A76D !important;
+  border-radius: 4px;
+  padding: 8px 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  transition: all 0.3s;
+}
+.cyber-btn:hover {
+  background: rgba(210, 167, 109, 0.2) !important;
+  box-shadow: 0 0 20px rgba(210, 167, 109, 0.4);
 }
 </style>

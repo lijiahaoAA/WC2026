@@ -7,12 +7,13 @@
       <el-header class="app-header">
         <div class="logo">
           <img src="/favicon.png" alt="Logo" class="logo-img" />
-          <span class="title" >WC2026 智能投注辅助决策引擎</span>
+          <span class="title" >2026美加墨世界杯 智能投注辅助决策引擎</span>
         </div>
         <el-menu mode="horizontal" :router="true" :default-active="$route.path" class="nav-menu" background-color="transparent" text-color="#A0A0A0" active-text-color="#D2A76D">
           <el-menu-item index="/">赛事大屏</el-menu-item>
           <el-menu-item index="/teams">球队库</el-menu-item>
           <el-menu-item index="/players">球员库</el-menu-item>
+          <el-menu-item index="/settings">模型配置</el-menu-item>
         </el-menu>
       </el-header>
       
@@ -135,6 +136,7 @@ body, html {
   height: calc(100vh - 70px);
   overflow-y: auto;
   overflow-x: hidden;
+  pointer-events: auto;
 }
 
 /* 当处于大屏页面时，取消 padding，实现真正的全屏铺满 */

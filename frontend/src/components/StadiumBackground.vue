@@ -64,10 +64,10 @@ const initThreeJS = () => {
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.05
-  controls.enableZoom = true
+  controls.enableZoom = false  // 关闭滚轮缩放，避免拦截页面滚动
   controls.minDistance = 10
   controls.maxDistance = 1000
-  controls.enablePan = true
+  controls.enablePan = false   // 关闭平移，避免干扰页面交互
   controls.autoRotate = true
   controls.autoRotateSpeed = 0.5
   controls.maxPolarAngle = Math.PI
